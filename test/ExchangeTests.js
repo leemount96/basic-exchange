@@ -70,10 +70,7 @@ describe("Exchange", function () {
       expect(await deployedX.balanceOf(deployedExchange.address)).to.equal(offerAmount);
       expect(await deployedX.balanceOf(addr1.address)).to.equal(supplyX - offerAmount);
 
-      const [_amountX, _price] = await deployedExchange.connect(addr1).checkOffer();
-
-      expect(_amountX).to.equal(offerAmount);
-      expect(_price).to.equal(price);
+      expect(await deployedExchange.price()).to.equal(price);
     });
 
     it("Update price of an existing offer to a valid price", async function () {
@@ -81,9 +78,7 @@ describe("Exchange", function () {
       
       await deployedExchange.connect(addr1).updatePrice(newPrice);
 
-      const [_amountX, _price] = await deployedExchange.connect(addr1).checkOffer();
-      expect(_amountX).to.equal(offerAmount);
-      expect(_price).to.equal(newPrice);
+      expect(await deployedExchange.price()).to.equal(newPrice);
     });
 
     it("Attempt to update price of an existing offer to an invalid price", async function () {
@@ -143,7 +138,6 @@ describe("Exchange", function () {
 
     it("Try to check and modify the cancelled offer", async function () {
       await expect(deployedExchange.connect(addr1).updatePrice(price)).to.be.revertedWith("No existing offer");
-      await expect(deployedExchange.connect(addr1).checkOffer()).to.be.revertedWith("No existing offer");
       await expect(deployedExchange.connect(addr1).cancelOffer()).to.be.revertedWith("No existing offer");
     });
 
@@ -156,10 +150,7 @@ describe("Exchange", function () {
       expect(await deployedX.balanceOf(deployedExchange.address)).to.equal(newOfferAmount);
       expect(await deployedX.balanceOf(addr1.address)).to.equal(supplyX - newOfferAmount);
 
-      const [_amountX, _price] = await deployedExchange.connect(addr1).checkOffer();
-
-      expect(_amountX).to.equal(newOfferAmount);
-      expect(_price).to.equal(newPrice);
+      expect(await deployedExchange.price()).to.equal(newPrice);
     });
   });
 
@@ -197,7 +188,7 @@ describe("Exchange", function () {
       expect(await deployedY.balanceOf(addr1.address)).to.equal(acceptAmount);
       expect(await deployedY.balanceOf(addr2.address)).to.equal(supplyY - acceptAmount);
 
-      await expect(deployedExchange.connect(addr1).checkOffer()).to.be.revertedWith("No existing offer");
+      await expect(deployedExchange.connect(addr1).cancelOffer()).to.be.revertedWith("No existing offer");
     })
 
     it("Try to accept offer twice when price is 1", async function () {

@@ -48,12 +48,6 @@ contract Exchange {
         price = newPrice;
     }
 
-    function checkOffer() external view returns (uint256, uint256) {
-        require(outstandingOffer == true, "No existing offer");
-        
-        return (ERC20(tokenX).balanceOf(address(this)), price);
-    }
-
     function cancelOffer() public {
         require(msg.sender == initializer, "Not owner of offer");
         require(outstandingOffer == true, "No existing offer");
