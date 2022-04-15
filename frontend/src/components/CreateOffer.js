@@ -1,13 +1,19 @@
 import React from "react";
 
-export function Offer({ createOffer }) {
+// Form for creating offer
+// includes fields for: 
+//  *base token
+//  *target token
+//  *amount of base toekn
+//  *price in terms of target token
+
+export function CreateOffer({ createOffer }) {
   return (
     <div>
       <h4>Create Offer</h4>
       <form
         onSubmit={(event) => {
-          // This function just calls the transferTokens callback with the
-          // form's data.
+          // This function calls the createOffer function with form data
           event.preventDefault();
 
           const formData = new FormData(event.target);

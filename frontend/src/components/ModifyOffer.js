@@ -1,6 +1,15 @@
 import React from "react";
 
-export function Modify({ modifyOffer, cancelOffer }) {
+// Form shown to connected user if they were the initializer of the offer
+// Should display:
+//  *base token address
+//  *target token address
+//  *amount of base token in contract
+//  *price of the offer
+// Should also allow the user to:
+//  *modify the price of the offer
+//  *cancel the offer
+export function ModifyOffer({ modifyOffer, cancelOffer }) {
   return (
     <div>
       <h4>Modify or Cancel Existing Offer</h4>
@@ -36,6 +45,7 @@ export function Modify({ modifyOffer, cancelOffer }) {
           <button
           className="btn btn-warning"
           type="button"
+          //TODO
           //onClick{cancelOffer}
           >
             Cancel Offer

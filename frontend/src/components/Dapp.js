@@ -14,7 +14,9 @@ import contractAddress from "../contracts/contract-address.json";
 import { NoWalletDetected } from "./NoWalletDetected";
 import { ConnectWallet } from "./ConnectWallet";
 import { Loading } from "./Loading";
-import { Offer } from "./Offer";
+import { CreateOffer } from "./CreateOffer";
+import { ModifyOffer } from "./ModifyOffer";
+import { AcceptOffer } from "./AcceptOffer";
 import { TransactionErrorMessage } from "./TransactionErrorMessage";
 import { WaitingForTransactionMessage } from "./WaitingForTransactionMessage";
 import { NoTokensMessage } from "./NoTokensMessage";
@@ -75,7 +77,7 @@ export class Dapp extends React.Component {
     //
     // Note that we pass it a callback that is going to be called when the user
     // clicks a button. This callback just calls the _connectWallet method.
-    if (!this.state.selectedAddress) {
+    if (!this.state.currentAddress) {
       return (
         <ConnectWallet 
           connectWallet={() => this._connectWallet()} 
@@ -85,11 +87,16 @@ export class Dapp extends React.Component {
       );
     }
 
-    // If the token data or the user's balance hasn't loaded yet, we show
-    // a loading component.
-    if (!this.state.tokenData || !this.state.balance) {
+    // If exchange data hasn't loaded, display a loading screen
+    if (!this.exchangeData) {
       return <Loading />;
     }
+
+    // Logic to be implemented:
+    // *if no outstanding offer, display createOffer form
+    // *if there is an outstanding offer:
+    //    *if connected user = initializer, display modify/cancel form
+    //    *if connected user != initializer, display acceptOffer form
 
     // If everything is loaded, we render the application.
     return (
@@ -100,11 +107,7 @@ export class Dapp extends React.Component {
               ERC20 Token Exchange
             </h1>
             <p>
-              Welcome <b>{this.state.selectedAddress}</b>, you have{" "}
-              <b>
-                {this.state.balance.toString()} {this.state.tokenData.symbol}
-              </b>
-              .
+              Welcome <b>{this.state.currentAddress}</b>, please create an offer
             </p>
           </div>
         </div>
@@ -145,18 +148,26 @@ export class Dapp extends React.Component {
             )}
 
             {/*
-              This component displays a form that the user can use to send a 
-              transaction and transfer some tokens.
-              The component doesn't have logic, it just calls the transferTokens
-              callback.
+              This component displays a form that the user can use to create an offer
             */}
             {this.state.balance.gt(0) && (
-              <Offer
+              <CreateOffer
                 createOffer={(baseToken, targetToken, amount, price) =>
                   this._createOffer(baseToken, targetToken, amount, price)
                 }
               />
             )}
+            {/*
+              If no outstanding offer, display createOffer form
+            */}
+
+            {/*
+              If outstanding offer and currentAddress is initializer, display modifyOffer form
+            */}
+
+            {/*
+              If outstanding offer and currentAddress is not initializer, display acceptOffer form
+            */}
           </div>
         </div>
       </div>
@@ -186,7 +197,7 @@ export class Dapp extends React.Component {
 
     this._initialize(selectedAddress);
 
-    // We reinitialize it whenever the user changes their account.
+    // We want to reinitialize some aspects, but maintain most of the state, so need to modify this
     window.ethereum.on("accountsChanged", ([newAddress]) => {
       this._stopPollingData();
       // `accountsChanged` event can be triggered with an undefined newAddress.
@@ -257,13 +268,27 @@ export class Dapp extends React.Component {
     this._pollDataInterval = undefined;
   }
 
-  // The next two methods just read from the contract and store the results
-  // in the component state.
+  // get owner of exchange, essentially just a check that it has been initialized
   async _getExchangeData() {
-    const name = await this._token.name();
-    const symbol = await this._token.symbol();
+    const owner = await this._exchange.owner();
 
-    this.setState({ tokenData: { name, symbol } });
+    this.setState({ exchangeData: { owner } });
+  }
+
+  // update state with offer data
+  async _getOfferData() {
+    const tokenX = await this._exchange.tokenX();
+    const tokenY = await this._exchange.tokenY();
+    const price = await this._exchange.price();
+    const initializer = await this._exchange.initializer();
+    const outstandingOffer = await this._exchange.outstandingOffer();
+
+    //need to figure out how to get token functions
+    //const amountX = await tokenX.balanceOf(this._exchange.address);
+
+    //set state offerData
+    this.setState({ offerData: { tokenX, tokenY, price, initializer } });
+    this.setState({ outstandingOffer });
   }
 
   async _updateBalance() {
@@ -271,9 +296,7 @@ export class Dapp extends React.Component {
     this.setState({ balance });
   }
 
-  // This method sends an ethereum transaction to transfer tokens.
-  // While this action is specific to this application, it illustrates how to
-  // send a transaction.
+  // This method creates a new offer
   async _createOffer(baseToken, targetToken, amount, price) {
     // Sending a transaction is a complex operation:
     //   - The user can reject it
@@ -303,23 +326,141 @@ export class Dapp extends React.Component {
         throw new Error("Create offer failed");
       }
 
-      // If we got here, the transaction was successful, so you may want to
-      // update your state. Here, we update the user's balance.
+      // if we get here transaction was successful, so update state
+      
+      await this._getOfferData();
+
       await this._updateBalance();
+
     } catch (error) {
-      // We check the error code to see if this error was produced because the
-      // user rejected a tx. If that's the case, we do nothing.
+      // if user rejected error, do nothing
       if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
         return;
       }
 
-      // Other errors are logged and stored in the Dapp's state. This is used to
-      // show them to the user, and for debugging.
+      // log errors for debugging
       console.error(error);
       this.setState({ transactionError: error });
+
     } finally {
-      // If we leave the try/catch, we aren't sending a tx anymore, so we clear
-      // this part of the state.
+      // transaction no longer being sent so reset state variable
+      this.setState({ txBeingSent: undefined });
+    }
+  }
+
+  // Modify existing offer
+  async _modifyOffer(price) {
+    try {
+      this._dismissTransactionError();
+
+      // Send the modifyOffer transaction and save the hash
+      const tx = await this._exchange.updatePrice(price);
+      this.setState({ txBeingSent: tx.hash });
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+
+      // Check for error in transaction
+      if (receipt.status === 0) {
+        throw new Error("Modify offer failed");
+      }
+
+      // if we get here transaction was successful, so update state
+      await this._getOfferData();
+
+      await this._updateBalance();
+
+    } catch (error) {
+      // if user rejected error, do nothing
+      if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
+        return;
+      }
+
+      // log errors for debugging
+      console.error(error);
+      this.setState({ transactionError: error });
+
+    } finally {
+      // transaction no longer being sent so reset state variable
+      this.setState({ txBeingSent: undefined });
+    }
+  }
+
+  // Cancel existing offer
+  async _cancelOffer() {
+    try {
+      this._dismissTransactionError();
+
+      // Send the cancelOffer transaction and save the hash
+      const tx = await this._exchange._cancelOffer();
+      this.setState({ txBeingSent: tx.hash });
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+
+      // Check for error in transaction
+      if (receipt.status === 0) {
+        throw new Error("Cancel offer failed");
+      }
+
+      // if we get here transaction was successful, so update state
+      await this._resetState();
+
+    } catch (error) {
+      // if user rejected error, do nothing
+      if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
+        return;
+      }
+
+      // log errors for debugging
+      console.error(error);
+      this.setState({ transactionError: error });
+
+    } finally {
+      // transaction no longer being sent so reset state variable
+      this.setState({ txBeingSent: undefined });
+    }
+  }
+
+  // Accept existing offer
+  async _acceptOffer(amount) {
+    try {
+      this._dismissTransactionError();
+
+      // Send the modifyOffer transaction and save the hash
+      const tx = await this._exchange.acceptOffer(amount);
+      this.setState({ txBeingSent: tx.hash });
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+
+      // Check for error in transaction
+      if (receipt.status === 0) {
+        throw new Error("Accept offer failed");
+      }
+
+      // if we get here transaction was successful, so update state
+      await this._getOfferData();
+
+      // check if contract has returned false for outstanding offer (ie. took the full size)
+      if (!this.state.outstandingOffer) {
+        await this._resetState()
+      }
+
+      await this._updateBalance();
+
+    } catch (error) {
+      // if user rejected error, do nothing
+      if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
+        return;
+      }
+
+      // log errors for debugging
+      console.error(error);
+      this.setState({ transactionError: error });
+
+    } finally {
+      // transaction no longer being sent so reset state variable
       this.setState({ txBeingSent: undefined });
     }
   }
