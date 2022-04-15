@@ -186,7 +186,7 @@ export class Dapp extends React.Component {
 
     // To connect to the user's wallet, we have to run this method.
     // It returns a promise that will resolve to the user's address.
-    const [selectedAddress] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const [currentAddress] = await window.ethereum.request({ method: 'eth_requestAccounts' });
 
     // Once we have the address, we can initialize the application.
 
@@ -195,7 +195,7 @@ export class Dapp extends React.Component {
       return;
     }
 
-    this._initialize(selectedAddress);
+    this._initialize(currentAddress);
 
     // We want to reinitialize some aspects, but maintain most of the state, so need to modify this
     window.ethereum.on("accountsChanged", ([newAddress]) => {
@@ -249,18 +249,12 @@ export class Dapp extends React.Component {
     );
   }
 
-  // The next two methods are needed to start and stop polling data. While
-  // the data being polled here is specific to this example, you can use this
-  // pattern to read any data from your contracts.
-  //
-  // Note that if you don't need it to update in near real time, you probably
-  // don't need to poll it. If that's the case, you can just fetch it when you
-  // initialize the app, as we do with the token data.
+  // Poll data from contract, need to add logic to do different things depending on state/user
   _startPollingData() {
-    this._pollDataInterval = setInterval(() => this._updateBalance(), 1000);
+    this._pollDataInterval = setInterval(() => this._updateOffer(), 1000);
 
     // We run it once immediately so we don't have to wait for it
-    this._updateBalance();
+    this._updateOffer();
   }
 
   _stopPollingData() {
@@ -291,9 +285,11 @@ export class Dapp extends React.Component {
     this.setState({ outstandingOffer });
   }
 
-  async _updateBalance() {
-    const balance = await this._token.balanceOf(this.state.selectedAddress);
-    this.setState({ balance });
+  // for now, just call _getOfferData, will change to update depending on user
+  async _updateOffer() {
+    // const balance = await this._token.balanceOf(this.state.selectedAddress);
+    // this.setState({ balance });
+    this._getOfferData();
   }
 
   // This method creates a new offer
