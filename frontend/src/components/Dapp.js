@@ -48,7 +48,7 @@ export class Dapp extends React.Component {
     // You don't need to follow this pattern, but it's an useful example.
     this.initialState = {
       // information about exchange
-      exchangeData: undefined,
+      exchangeOwner: undefined,
       // bool for checking if there is an offer
       outstandingOffer: false,
       // info about current offer
@@ -64,19 +64,10 @@ export class Dapp extends React.Component {
   }
 
   render() {
-    // Ethereum wallets inject the window.ethereum object. If it hasn't been
-    // injected, we instruct the user to install MetaMask.
     if (window.ethereum === undefined) {
       return <NoWalletDetected />;
     }
 
-    // The next thing we need to do, is to ask the user to connect their wallet.
-    // When the wallet gets connected, we are going to save the users's address
-    // in the component's state. So, if it hasn't been saved yet, we have
-    // to show the ConnectWallet component.
-    //
-    // Note that we pass it a callback that is going to be called when the user
-    // clicks a button. This callback just calls the _connectWallet method.
     if (!this.state.currentAddress) {
       return (
         <ConnectWallet 
@@ -88,7 +79,7 @@ export class Dapp extends React.Component {
     }
 
     // If exchange data hasn't loaded, display a loading screen
-    if (!this.exchangeData) {
+    if (!this.state.exchangeOwner) {
       return <Loading />;
     }
 
@@ -98,80 +89,179 @@ export class Dapp extends React.Component {
     //    *if connected user = initializer, display modify/cancel form
     //    *if connected user != initializer, display acceptOffer form
 
-    // If everything is loaded, we render the application.
-    return (
-      <div className="container p-4">
-        <div className="row">
-          <div className="col-12">
-            <h1>
-              ERC20 Token Exchange
-            </h1>
-            <p>
-              Welcome <b>{this.state.currentAddress}</b>, please create an offer
-            </p>
+
+    if (!this.state.outstandingOffer) {
+      return (
+        <div className="container p-4">
+          <div className="row">
+            <div className="col-12">
+              <h1>
+                ERC20 Token Exchange
+              </h1>
+              <p>
+                Welcome <b>{this.state.currentAddress}</b>, please create an offer
+              </p>
+            </div>
           </div>
-        </div>
 
-        <hr />
+          <hr />
 
-        <div className="row">
-          <div className="col-12">
-            {/* 
-              Sending a transaction isn't an immediate action. You have to wait
-              for it to be mined.
-              If we are waiting for one, we show a message here.
-            */}
-            {this.state.txBeingSent && (
-              <WaitingForTransactionMessage txHash={this.state.txBeingSent} />
-            )}
+          <div className="row">
+            <div className="col-12">
+              {/* 
+                Sending a transaction isn't an immediate action. You have to wait
+                for it to be mined.
+                If we are waiting for one, we show a message here.
+              */}
+              {this.state.txBeingSent && (
+                <WaitingForTransactionMessage txHash={this.state.txBeingSent} />
+              )}
 
-            {/* 
-              Sending a transaction can fail in multiple ways. 
-              If that happened, we show a message here.
-            */}
-            {this.state.transactionError && (
-              <TransactionErrorMessage
-                message={this._getRpcErrorMessage(this.state.transactionError)}
-                dismiss={() => this._dismissTransactionError()}
-              />
-            )}
+              {/* 
+                Sending a transaction can fail in multiple ways. 
+                If that happened, we show a message here.
+              */}
+              {this.state.transactionError && (
+                <TransactionErrorMessage
+                  message={this._getRpcErrorMessage(this.state.transactionError)}
+                  dismiss={() => this._dismissTransactionError()}
+                />
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="row">
-          <div className="col-12">
-            {/*
-              If the user has no tokens, we don't show the Transfer form
-            */}
-            {this.state.balance.eq(0) && (
-              <NoTokensMessage selectedAddress={this.state.selectedAddress} />
-            )}
-
-            {/*
-              This component displays a form that the user can use to create an offer
-            */}
-            {this.state.balance.gt(0) && (
-              <CreateOffer
-                createOffer={(baseToken, targetToken, amount, price) =>
-                  this._createOffer(baseToken, targetToken, amount, price)
-                }
-              />
-            )}
-            {/*
-              If no outstanding offer, display createOffer form
-            */}
-
-            {/*
-              If outstanding offer and currentAddress is initializer, display modifyOffer form
-            */}
-
-            {/*
-              If outstanding offer and currentAddress is not initializer, display acceptOffer form
-            */}
+          <div className="row">
+            <div className="col-12">
+              {/*
+                This component displays a form that the user can use to create an offer
+              */}
+              {this.state.exchangeOwner && (
+                <CreateOffer
+                  createOffer={(baseToken, targetToken, amount, price) =>
+                    this._createOffer(baseToken, targetToken, amount, price)
+                  }
+                />
+              )}
+            </div>
           </div>
-        </div>
-      </div>
-    );
+        </div> 
+      );
+    }
+    else if (this.state.currentAddress == offerData.initializer) {
+      return (
+        <div className="container p-4">
+          <div className="row">
+            <div className="col-12">
+              <h1>
+                ERC20 Token Exchange
+              </h1>
+              <p>
+                Welcome <b>{this.state.currentAddress}</b>, here you can amend or cancel your offer
+              </p>
+            </div>
+          </div>
+
+          <hr />
+
+          <div className="row">
+            <div className="col-12">
+              {/* 
+                Sending a transaction isn't an immediate action. You have to wait
+                for it to be mined.
+                If we are waiting for one, we show a message here.
+              */}
+              {this.state.txBeingSent && (
+                <WaitingForTransactionMessage txHash={this.state.txBeingSent} />
+              )}
+
+              {/* 
+                Sending a transaction can fail in multiple ways. 
+                If that happened, we show a message here.
+              */}
+              {this.state.transactionError && (
+                <TransactionErrorMessage
+                  message={this._getRpcErrorMessage(this.state.transactionError)}
+                  dismiss={() => this._dismissTransactionError()}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="col-12">
+              {/*
+                This component displays a form that the user can use to modify or cancel an offer
+              */}
+              {this.state.exchangeOwner && (
+                <ModifyOffer
+                  modifyOffer={(price) =>
+                    this._modifyOffer(price)
+                  }
+                  cancelOffer={() => this._cancelOffer()}
+                />
+              )}
+            </div>
+          </div>
+        </div> 
+      );
+    }
+    else {
+      return (
+        <div className="container p-4">
+          <div className="row">
+            <div className="col-12">
+              <h1>
+                ERC20 Token Exchange
+              </h1>
+              <p>
+                Welcome <b>{this.state.currentAddress}</b>, here is the existing offer
+              </p>
+            </div>
+          </div>
+
+          <hr />
+
+          <div className="row">
+            <div className="col-12">
+              {/* 
+                Sending a transaction isn't an immediate action. You have to wait
+                for it to be mined.
+                If we are waiting for one, we show a message here.
+              */}
+              {this.state.txBeingSent && (
+                <WaitingForTransactionMessage txHash={this.state.txBeingSent} />
+              )}
+
+              {/* 
+                Sending a transaction can fail in multiple ways. 
+                If that happened, we show a message here.
+              */}
+              {this.state.transactionError && (
+                <TransactionErrorMessage
+                  message={this._getRpcErrorMessage(this.state.transactionError)}
+                  dismiss={() => this._dismissTransactionError()}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="col-12">
+              {/*
+                This component displays a form that the user can use to accept an offer
+              */}
+              {this.state.exchangeOwner && (
+                <AcceotOffer
+                  acceptOffer={(amount) =>
+                    this._acceptOffer(amount)
+                  }
+                />
+              )}
+            </div>
+          </div>
+        </div> 
+      );
+    }
   }
 
   componentWillUnmount() {
@@ -181,15 +271,9 @@ export class Dapp extends React.Component {
   }
 
   async _connectWallet() {
-    // This method is run when the user clicks the Connect. It connects the
-    // dapp to the user's wallet, and initializes it.
 
-    // To connect to the user's wallet, we have to run this method.
-    // It returns a promise that will resolve to the user's address.
     const [currentAddress] = await window.ethereum.request({ method: 'eth_requestAccounts' });
-
-    // Once we have the address, we can initialize the application.
-
+ 
     // First we check the network
     if (!this._checkNetwork()) {
       return;
@@ -232,7 +316,7 @@ export class Dapp extends React.Component {
     // Fetching the token data and the user's balance are specific to this
     // sample project, but you can reuse the same initialization pattern.
     this._initializeEthers();
-    this._getExchangeData();
+    this._getExchangeOwner();
     this._startPollingData();
   }
 
@@ -263,10 +347,11 @@ export class Dapp extends React.Component {
   }
 
   // get owner of exchange, essentially just a check that it has been initialized
-  async _getExchangeData() {
+  async _getExchangeOwner() {
     const owner = await this._exchange.owner();
 
-    this.setState({ exchangeData: { owner } });
+    this.setState({ exchangeOwner: owner });
+    //this.state.exchangeOwner = owner;
   }
 
   // update state with offer data
